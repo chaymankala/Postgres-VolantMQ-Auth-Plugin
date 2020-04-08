@@ -2,9 +2,9 @@ package main
 
 import (
 	"github.com/VolantMQ/vlapi/vlauth"
-	_ "github.com/lib/pq"
-	"database/sql"
 	"fmt"
+	"github.com/jackc/pgx/v4"
+	"context"
 )
 
 type UserModel struct {
@@ -16,20 +16,17 @@ type UserModel struct {
 
 type authProvider struct {
 	cfg        config
-	db_connection pq.Conn
+	db_connection *pgx.Conn
 }
 
 func (p *authProvider) Connect() error {
 	connStr := p.cfg.postgresUrl
-	db, err := sql.Open("postgres", connStr)
+	db, err := pgx.Connect(context.Background(), connStr)
 	if err != nil {
 		return err
 	}
+	// defer db.Close(context.Background())
 	p.db_connection = db
-	ping_err = db.Ping()
-	if ping_err != nil {
-		return ping_err
-	}
 	return nil
 }
 
@@ -39,11 +36,11 @@ func (p *authProvider) Init() error {
 }
 
 func (p *authProvider) Finduser(username string, password string) (user UserModel, error error) {
-	db_query := fmt.Sprintf("SELECT * FROM %s WHERE username = $1 AND password = $2", p.cfg.postgresUserTable)
-	rows, err := p.connection.Query(db_query, username, password)
+	db_query := fmt.Sprintf("select Username,Password,SubscriptionList,PublishList FROM %s WHERE username = $1 AND password = $2", p.cfg.postgresUserTable)
+	err := p.connection.Query(db_query, username, password).Scan(&user.Username, &user.Password, &user.SubscriptionList, &user.PublishList)
 	if err != nil {
 		error = err
-		return user, error
+		return user, err
 	}
 	return user, nil
 }
