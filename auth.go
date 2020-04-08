@@ -37,7 +37,17 @@ func (p *authProvider) Init() error {
 
 func (p *authProvider) Finduser(username string, password string) (user UserModel, error error) {
 	db_query := fmt.Sprintf("select Username,Password,SubscriptionList,PublishList FROM %s WHERE username = $1 AND password = $2", p.cfg.postgresUserTable)
-	err := p.connection.Query(db_query, username, password).Scan(&user.Username, &user.Password, &user.SubscriptionList, &user.PublishList)
+	err := p.db_connection.QueryRow(context.Background(), db_query, username, password).Scan(&user.Username, &user.Password, &user.SubscriptionList, &user.PublishList)
+	if err != nil {
+		error = err
+		return user, err
+	}
+	return user, nil
+}
+
+func (p *authProvider) FindUserByUsername(username string) (user UserModel, error error) {
+	db_query := fmt.Sprintf("select Username,Password,SubscriptionList,PublishList FROM %s WHERE username = $1", p.cfg.postgresUserTable)
+	err := p.db_connection.QueryRow(context.Background(), db_query, username).Scan(&user.Username, &user.Password, &user.SubscriptionList, &user.PublishList)
 	if err != nil {
 		error = err
 		return user, err
@@ -51,15 +61,6 @@ func (p *authProvider) Password(clientID, username, password string) error {
 		return vlauth.StatusDeny
 	}
 	return vlauth.StatusAllow
-}
-
-func (p *authProvider) FindUserByUsername(username string) (user UserModel, err error) {
-	db_query := fmt.Sprintf("select Username,Password,SubscriptionList,PublishList FROM %s WHERE username = $1", p.cfg.postgresUserTable)
-	err := p.connection.Query(db_query, username).Scan(&user.Username, &user.Password, &user.SubscriptionList, &user.PublishList)
-	if err != nil {
-		return user, err
-	}
-	return user, nil
 }
 
 func (p *authProvider) ACL(clientID, username, topic string, access vlauth.AccessType) error {
@@ -78,4 +79,8 @@ func (p *authProvider) ACL(clientID, username, topic string, access vlauth.Acces
 		return vlauth.StatusAllow
 	}
 	return vlauth.StatusDeny
+}
+
+func (p *authProvider) Shutdown() error {
+	return nil
 }
